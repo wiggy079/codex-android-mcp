@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import test from 'node:test'
@@ -139,7 +139,7 @@ test('build execution is disabled by default and confined by canonical roots', a
       hostWith([emulator]),
       enabled,
     )
-    assert.equal(accepted.projectPath, project)
+    assert.equal(accepted.projectPath, realpathSync(project))
     await assert.rejects(
       authorizeToolCall(
         'android_build_run',
