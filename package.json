@@ -1,0 +1,67 @@
+{
+  "name": "codex-android-mcp",
+  "version": "0.1.0",
+  "description": "A local-first MCP server that lets Codex build, inspect, test, and control Android emulators or explicitly allowed USB devices through adb.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "mcp",
+    "codex",
+    "android",
+    "adb",
+    "emulator",
+    "automation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zifanersuotang/codex-android-mcp.git"
+  },
+  "homepage": "https://github.com/zifanersuotang/codex-android-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/zifanersuotang/codex-android-mcp/issues"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "bin": {
+    "codex-android-mcp": "./lib/index.js"
+  },
+  "main": "./lib/server.js",
+  "types": "./lib/server.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/server.d.ts",
+      "default": "./lib/server.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "assets/ocr.swift",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "LICENSES/MIT-ZSeven-W.txt",
+    "THIRD_PARTY_NOTICES.md",
+    "SECURITY.md",
+    "docs/SECURITY_MODEL.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "node --test test/*.test.mjs",
+    "test:smoke": "node scripts/dev-adb-smoke.mjs && node scripts/dev-tools-smoke.mjs && node scripts/dev-uitree-smoke.mjs && node scripts/dev-logs-smoke.mjs && node scripts/dev-vision-smoke.mjs",
+    "test": "npm run typecheck && npm run build && npm run test:unit && npm run test:smoke",
+    "test:device": "npm run build && node scripts/dev-emulator-smoke.mjs",
+    "start": "node lib/index.js",
+    "prepack": "npm run test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.3"
+  }
+}
