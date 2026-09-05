@@ -24,6 +24,12 @@
 
 项目不会捆绑或自动下载 `adb`、模拟器和 ADBKeyboard。
 
+### 中文与其他非 ASCII 输入
+
+纯 ASCII 文本使用 Android 自带的 `input text`。输入中文、emoji 或其他非 ASCII 字符时，目标设备必须已经安装并启用开源的 [ADBKeyboard](https://github.com/senzhk/ADBKeyBoard) 输入法；本项目不会捆绑或自动安装它。
+
+每次输入非 ASCII 文本时，服务会先读取当前输入法，临时切换到 ADBKeyboard，通过 Base64 广播发送 UTF-8 文本，然后恢复原输入法；即使广播发送失败，也会尝试恢复。密码、验证码、支付信息及其他秘密内容不得通过自动化输入。
+
 ## 安装到 Codex
 
 ```powershell
