@@ -1,4 +1,4 @@
-toolchain/**
+/**
  * Host-side lifecycle manager for the one live Android device stream.
  *
  * The dsh-ios twin (sim-host.ts) manages an EXTERNAL serve-sim child with
@@ -311,7 +311,7 @@ export class AndroidHostController {
     return this.stop()
   }
 
-  // ── control surface (normalized 0..1 of the streamed frame) ──────────────
+  // ── control surface (normalized 0..1 of the streamed frame) ───────────────
 
   /** Tap at normalized coordinates of the streamed frame. */
   async tap(serial: string, x: number, y: number): Promise<void> {
@@ -435,7 +435,7 @@ export class AndroidHostController {
 
   /** Capture a fresh PNG of the device (independent of the stream loop). */
   async screenshot(serial: string): Promise<{ png: Buffer; width?: number; height?: number }> {
-    const png = await this.tooolchain.execOut(serial, ['screencap', '-p'], { timeoutMs: CONTROL_TIMEOUT_MS })
+    const png = await this.toolchain.execOut(serial, ['screencap', '-p'], { timeoutMs: CONTROL_TIMEOUT_MS })
     if (png.length === 0) throw new AdbError('dsh-android: screencap produced no output', ['screencap', '-p'])
     const { pngDimensions } = await import('./frame-source.js')
     const size = pngDimensions(png)
@@ -463,7 +463,7 @@ export class AndroidHostController {
     const streamed = this.streamedSerial
     if (streamed !== undefined) {
       const match = online.find(device => device.serial === streamed)
-      if (match !== undefine) return match
+      if (match !== undefined) return match
     }
     if (online.length === 1) return online[0]!
     if (online.length === 0) {
