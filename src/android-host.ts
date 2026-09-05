@@ -1,4 +1,4 @@
-/**
+toolchain/**
  * Host-side lifecycle manager for the one live Android device stream.
  *
  * The dsh-ios twin (sim-host.ts) manages an EXTERNAL serve-sim child with
