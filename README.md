@@ -26,6 +26,12 @@ This is an independent community project. It is not affiliated with or endorsed 
 
 Neither `adb` nor an emulator binary is bundled or downloaded.
 
+### Non-ASCII text input
+
+Plain ASCII uses Android's built-in `input text` command. Typing CJK text, emoji, or other non-ASCII characters requires the open-source [ADBKeyboard](https://github.com/senzhk/ADBKeyBoard) IME to be installed and enabled on the target device; this project does not bundle or install it.
+
+For each non-ASCII input, the server reads the active input method, temporarily selects ADBKeyboard, sends the UTF-8 text as a Base64 broadcast, and then restores the original keyboard. Restoration is attempted even when delivery fails. Do not use automated input for passwords, one-time codes, payment data, or other secrets.
+
 ## Install for Codex
 
 ```powershell
