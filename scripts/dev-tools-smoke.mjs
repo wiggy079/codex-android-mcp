@@ -128,8 +128,18 @@ if (rest[0] === 'exec-out') {
     out('bash arg: -p\\nEvents injected: 1')
   } else if (command.startsWith('am force-stop')) {
     out('')
-  } else if (command.startsWith('ime list')) {
-    out('')
+  } else if (command === 'ime list -s') {
+    out('com.example.keyboard/.Ime\\ncom.android.adbkeyboard/.AdbIME\\n')
+  } else if (command === 'settings get secure default_input_method') {
+    out((process.env.DSH_SMOKE_DEFAULT_IME || 'com.example.keyboard/.Ime') + '\\n')
+  } else if (command.startsWith('ime set ')) {
+    out('Input method selected\\n')
+  } else if (command.startsWith('am broadcast -a ADB_INPUT_B64 ')) {
+    if (process.env.DSH_SMOKE_ADBKEYBOARD_FAIL === '1') {
+      process.stderr.write('simulated ADBKeyboard broadcast failure\\n')
+      process.exit(1)
+    }
+    out('Broadcast completed: result=0\\n')
   } else if (command.startsWith('pidof')) {
     out('')
   } else die('shell ' + command)
@@ -355,6 +365,48 @@ async function main() {
     step('type escapes spaces for `input text`', lastShell('input text') === 'input text hello%sworld',
       lastShell('input text'))
     rmSync(typed.path, { force: true })
+
+    reset()
+    const unicodeArgs = { action: 'type', text: '杭州西湖' }
+    const unicodeTyped = await tools.androidInteract.execute(unicodeArgs, makeExec('android_interact', unicodeArgs))
+    const unicodeShells = calls()
+      .filter(argv => argv.includes('shell'))
+      .map(argv => argv.slice(argv.indexOf('shell') + 1).join(' '))
+    step('unicode type switches to ADBKeyboard, broadcasts base64, then restores the original IME',
+      unicodeShells.includes('ime set com.android.adbkeyboard/.AdbIME')
+      && unicodeShells.includes('am broadcast -a ADB_INPUT_B64 --es msg 5p2t5bee6KW/5rmW')
+      && unicodeShells.indexOf('ime set com.example.keyboard/.Ime')
+      > unicodeShells.indexOf('am broadcast -a ADB_INPUT_B64 --es msg 5p2t5bee6KW/5rmW'),
+      unicodeShells.join(' → '))
+    rmSync(unicodeTyped.path, { force: true })
+
+    reset()
+    await withEnv({ DSH_SMOKE_DEFAULT_IME: 'com.android.adbkeyboard/.AdbIME' }, async () => {
+      const alreadyActive = await tools.androidInteract.execute(unicodeArgs, makeExec('android_interact', unicodeArgs))
+      const activeShells = calls()
+        .filter(argv => argv.includes('shell'))
+        .map(argv => argv.slice(argv.indexOf('shell') + 1).join(' '))
+      step('unicode type does not switch or restore when ADBKeyboard is already active',
+        activeShells.filter(command => command.startsWith('ime set ')).length === 0
+        && activeShells.includes('am broadcast -a ADB_INPUT_B64 --es msg 5p2t5bee6KW/5rmW'),
+        activeShells.join(' → '))
+      rmSync(alreadyActive.path, { force: true })
+    })
+
+    reset()
+    await withEnv({ DSH_SMOKE_ADBKEYBOARD_FAIL: '1' }, async () => {
+      await expectThrow(step, 'unicode type reports a failed ADBKeyboard broadcast',
+        () => tools.androidInteract.execute(unicodeArgs, makeExec('android_interact', unicodeArgs)),
+        /simulated ADBKeyboard broadcast failure/)
+    })
+    const failedUnicodeShells = calls()
+      .filter(argv => argv.includes('shell'))
+      .map(argv => argv.slice(argv.indexOf('shell') + 1).join(' '))
+    const failedBroadcastIndex = failedUnicodeShells.indexOf('am broadcast -a ADB_INPUT_B64 --es msg 5p2t5bee6KW/5rmW')
+    step('unicode type restores the original IME after a failed broadcast',
+      failedBroadcastIndex >= 0
+      && failedUnicodeShells.indexOf('ime set com.example.keyboard/.Ime') > failedBroadcastIndex,
+      failedUnicodeShells.join(' → '))
 
     reset()
     const buttonArgs = { action: 'button', name: 'back' }
