@@ -24,6 +24,8 @@ const DEFAULT_RESTART_DELAY_MS = 5_000
 const KEEP_ALIVE_TICK_MS = 1_000
 const FIRST_FRAME_TIMEOUT_MS = 15_000
 const CONTROL_TIMEOUT_MS = 30_000
+const ADB_KEYBOARD_COMPONENT = 'com.android.adbkeyboard/.AdbIME'
+const IME_SWITCH_SETTLE_MS = 400
 /** Longest `input swipe` duration accepted (ms). */
 const MAX_SWIPE_MS = 5_000
 
@@ -309,7 +311,7 @@ export class AndroidHostController {
     return this.stop()
   }
 
-  // ── control surface (normalized 0..1 of the streamed frame) ───────────────
+  // ── control surface (normalized 0..1 of the streamed frame) ──────────────
 
   /** Tap at normalized coordinates of the streamed frame. */
   async tap(serial: string, x: number, y: number): Promise<void> {
@@ -347,8 +349,8 @@ export class AndroidHostController {
   /**
    * Type text into the focused element. ASCII goes through `input text`;
    * non-ASCII (CJK, emoji) is attempted through the ADBKeyboard IME when it
-   * is installed, otherwise refused with the install hint — never silently
-   * mistyped.
+   * is installed. The user's current keyboard is restored immediately after
+   * delivery, including when the broadcast itself fails.
    */
   async type(serial: string, text: string): Promise<void> {
     if (typeof text !== 'string' || text === '') throw new TypeError('dsh-android: type requires a non-empty text')
@@ -360,11 +362,31 @@ export class AndroidHostController {
     if (!imes.includes('com.android.adbkeyboard')) {
       throw new AdbError(`dsh-android: ${NON_ASCII_TYPE_HINT}`, [])
     }
+
+    const originalIme = (await this.toolchain.shell(serial, [
+      'settings', 'get', 'secure', 'default_input_method',
+    ], { timeoutMs: CONTROL_TIMEOUT_MS })).trim()
+    if (originalIme === '' || originalIme === 'null') {
+      throw new AdbError('dsh-android: cannot read the active input method, so ADBKeyboard cannot be used safely', [])
+    }
+
+    const needsTemporarySwitch = originalIme !== ADB_KEYBOARD_COMPONENT
+    if (needsTemporarySwitch) {
+      await this.toolchain.shell(serial, ['ime', 'set', ADB_KEYBOARD_COMPONENT], { timeoutMs: CONTROL_TIMEOUT_MS })
+      await new Promise<void>(resolve => setTimeout(resolve, IME_SWITCH_SETTLE_MS))
+    }
+
     // ADBKeyboard base64 mode survives quoting for every unicode payload.
     const encoded = Buffer.from(text, 'utf8').toString('base64')
-    await this.toolchain.shell(serial, [
-      'am', 'broadcast', '-a', 'ADB_INPUT_B64', '--es', 'msg', encoded,
-    ], { timeoutMs: CONTROL_TIMEOUT_MS })
+    try {
+      await this.toolchain.shell(serial, [
+        'am', 'broadcast', '-a', 'ADB_INPUT_B64', '--es', 'msg', encoded,
+      ], { timeoutMs: CONTROL_TIMEOUT_MS })
+    } finally {
+      if (needsTemporarySwitch) {
+        await this.toolchain.shell(serial, ['ime', 'set', originalIme], { timeoutMs: CONTROL_TIMEOUT_MS })
+      }
+    }
   }
 
   /** Force the display rotation (Surface.ROTATION_0..3). */
@@ -413,7 +435,7 @@ export class AndroidHostController {
 
   /** Capture a fresh PNG of the device (independent of the stream loop). */
   async screenshot(serial: string): Promise<{ png: Buffer; width?: number; height?: number }> {
-    const png = await this.toolchain.execOut(serial, ['screencap', '-p'], { timeoutMs: CONTROL_TIMEOUT_MS })
+    const png = await this.tooolchain.execOut(serial, ['screencap', '-p'], { timeoutMs: CONTROL_TIMEOUT_MS })
     if (png.length === 0) throw new AdbError('dsh-android: screencap produced no output', ['screencap', '-p'])
     const { pngDimensions } = await import('./frame-source.js')
     const size = pngDimensions(png)
@@ -441,7 +463,7 @@ export class AndroidHostController {
     const streamed = this.streamedSerial
     if (streamed !== undefined) {
       const match = online.find(device => device.serial === streamed)
-      if (match !== undefined) return match
+      if (match !== undefine) return match
     }
     if (online.length === 1) return online[0]!
     if (online.length === 0) {
